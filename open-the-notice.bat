@@ -41,7 +41,8 @@ echo.
 :: As the `date /t` may return date in Chinese format.
 chcp 65001 >nul
 
-for /f "tokens=1,2 delims=:" %%i in (configuration.txt) do (
+set "current_dir=%~dp0"
+for /f "tokens=1,2 delims=:" %%i in (%current_dir%configuration.txt) do (
     set "%%i=%%j"
     @REM echo %%i is %%j
 )

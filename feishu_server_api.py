@@ -559,7 +559,7 @@ class FeishuDocsAPI:
 
 
 if __name__ == "__main__":
-    debug_dev_document = True
+    debug_dev_document = False
     now = datetime.now()
     formatted_time = now.strftime("%Y-%m-%d %H:%M:%S")
     print(f"now: {formatted_time}")
@@ -587,6 +587,6 @@ if __name__ == "__main__":
         save_all_document_comments_response_as_json=True,
     )
 
-    # feishu_docs_api.deliver_and_reply_messages()
+    feishu_docs_api.deliver_and_reply_messages()
 
     feishu_docs_api.delete_notified_messages()

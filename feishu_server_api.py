@@ -36,29 +36,62 @@ class FeishuDocsAPI:
         response_json = json.loads(response.text)
         return response_json
 
-    def preprocessAllDocumentBlocks(self):
-        self.all_document_blocks_response = self.obtainAllDocumentBlocks()
+    def preprocessAllDocumentBlocks(self, debug):
+        if debug is True:
+            script_dir = Path(__file__).resolve().parent
+            all_document_blocks_response_json_path = (
+                script_dir / "all_document_blocks_response.json"
+            )
+            with open(
+                all_document_blocks_response_json_path, "r", encoding="utf8"
+            ) as f:
+                self.all_document_blocks_response = json.load(f)
+        else:
+            self.all_document_blocks_response = self.obtainAllDocumentBlocks()
         self.all_document_blocks = self.all_document_blocks_response["data"]["items"]
-        self.all_block_ids = self.all_document_blocks[0]["children"]
+        self.all_document_children_block_ids = self.all_document_blocks[0]["children"]
         for block_index, block in enumerate(self.all_document_blocks):
             if (
                 block["block_type"] == 3
                 and block["heading1"]["elements"][0]["text_run"]["content"]
-                == "家长留言区"
+                == self.message_heading_text
             ):
-                self.message_heading_block_index = block_index
-                print("家长留言区 index: ", self.message_heading_block_index)
+                self.message_heading_block_id = block["block_id"]
+                print(
+                    f"{self.message_heading_text} block_id: ",
+                    self.message_heading_block_id,
+                )
+                self.item_message_heading_block_index = block_index
+                print(
+                    f"{self.message_heading_text} item_block_index: ",
+                    self.item_message_heading_block_index,
+                )
                 # The message_blocks_list does not contain the message title.
                 self.message_blocks_list = self.all_document_blocks[
-                    self.message_heading_block_index + 1 :
+                    self.item_message_heading_block_index + 1 :
                 ]
                 break
-        # The first message block index is the NEXT block of the "家长留言区".
-        self.message_block_start_index = self.message_heading_block_index + 1
+        # The first message block index is the NEXT block of the `message_heading_text``.
+        self.message_block_start_index = self.item_message_heading_block_index + 1
+
         # The first block is the document title (parent block) which could not be deleted.
         # Only the children blocks could be deleted.
         # The index is calculated based on children blocks.
-        self.children_message_block_start_index = self.message_block_start_index - 1
+        for document_children_block_id_index, document_children_block_id in enumerate(
+            self.all_document_children_block_ids
+        ):
+            if document_children_block_id == self.message_heading_block_id:
+                self.children_message_heading_block_index = (
+                    document_children_block_id_index
+                )
+                print(
+                    f"{self.message_heading_text} children_block_index: ",
+                    self.children_message_heading_block_index,
+                )
+                self.children_message_block_start_index = (
+                    self.children_message_heading_block_index + 1
+                )
+                break
 
     def __init__(
         self,
@@ -67,7 +100,9 @@ class FeishuDocsAPI:
         document_id,
         app_id,
         app_secret,
+        message_heading_text="家长留言区",
         save_all_document_blocks_response_as_json=True,
+        debug=True,
     ) -> None:
         self.notice_dir = Path(notice_dir)
         self.notice_path = Path()
@@ -77,18 +112,21 @@ class FeishuDocsAPI:
         self.access_token = tenant_access_token
         self.all_document_blocks_response = None
         self.all_document_blocks = []
-        self.all_block_ids = []
+        self.all_document_children_block_ids = []
         # The first block is the document title
-        self.message_heading_block_index = None
+        self.message_heading_text = message_heading_text
+        self.message_heading_block_id = None
+        self.item_message_heading_block_index = None
+        self.children_message_heading_block_index = None
         self.message_block_start_index = None
         self.children_message_block_start_index = None
         self.message_blocks_list = []
-        self.preprocessAllDocumentBlocks()
+        self.preprocessAllDocumentBlocks(debug)
         script_dir = Path(__file__).resolve().parent
         all_document_blocks_response_path = (
             script_dir / "all_document_blocks_response.json"
         )
-        if save_all_document_blocks_response_as_json is True:
+        if save_all_document_blocks_response_as_json is True and debug is False:
             with open(all_document_blocks_response_path, "w+", encoding="utf8") as f:
                 json.dump(self.all_document_blocks_response, f, ensure_ascii=False)
 
@@ -221,7 +259,7 @@ class FeishuDocsAPI:
                         # Reply messages
                         self.updateBlock(pending_message_block)
 
-    def deleteBlocks(self, block_index):
+    def delete_document_children_blocks(self, document_children_block_index):
         # The feishu official development document is weird.
         parent_block_id = self.document_id
         url = (
@@ -233,8 +271,8 @@ class FeishuDocsAPI:
         )
         payload = json.dumps(
             {
-                "start_index": block_index,
-                "end_index": block_index + 1,
+                "start_index": document_children_block_index,
+                "end_index": document_children_block_index + 1,
             }
         )
         access_token = "Bearer " + self.access_token
@@ -243,16 +281,46 @@ class FeishuDocsAPI:
             "Content-Type": "application/json; charset=utf-8",
         }
         response = requests.request("DELETE", url, headers=headers, data=payload)
-        print("delete blocks response:", response.text)
+        print("delete document children blocks response:", response.text)
 
     def deleteNotifiedMessages(self):
-        def deleteBlankAndNotifiedMessageBLocks(deletion_indexes_list):
-            # Delete blank and notified text messages.
-            blank_message_block_indexes_list = []
-            text_message_block_indexes_list = []
-            notified_text_message_block_indexes_list = []
-            # Delete all images if all text messages are notified.
-            image_message_block_indexes_list = []
+        # Deletion is executed based on children blocks, not item blocks.
+
+        def is_text_message_notified_24_hours_before(message_block_element):
+            if (
+                18 < len(message_block_element["text_run"]["content"])
+                and message_block_element["text_run"]["content"][19:24] == "【已通知】"
+            ):
+                text_message_notified_time = datetime.strptime(
+                    message_block_element["text_run"]["content"][:19],
+                    "%Y-%m-%d %H:%M:%S",
+                )
+                # print(text_message_notified_time)
+                current_time = datetime.now()
+                time_difference = current_time - text_message_notified_time
+                time_difference_seconds = time_difference.total_seconds()
+                if 24 * 60 * 60 < time_difference_seconds:
+                    return True
+                else:
+                    return False
+            else:
+                return False
+
+        def getBlankAndNotifiedMessageBlockIndexes():
+            deletion_dict = {}
+            deletion_images_dict = {}
+
+            # Process different dypes of blocks respectively for debugging.
+
+            # Initialize a dict to record blank message block indexes.
+            blank_message_blocks_dict = {}
+            # Initialize a dict to record notified text messages block indexes.
+            text_message_blocks_dict = {}
+            notified_text_message_blocks_dict = {}
+            # Initialize a dict to record all image indexes if all text messages are notified.
+            image_message_blocks_dic = {}
+
+            # There is no message_heading_text in the `self.message_blocks_list`.
             for children_message_block_index, message_block in enumerate(
                 self.message_blocks_list, start=self.children_message_block_start_index
             ):
@@ -260,72 +328,57 @@ class FeishuDocsAPI:
                     message_block_element = message_block["text"]["elements"][0]
                     if message_block_element["text_run"]["content"] == "":
                         # Record all blank message blocks
-                        blank_message_block_indexes_list.append(
-                            children_message_block_index
-                        )
-                        print(
-                            f"deletion blank block index: {children_message_block_index}"
+                        blank_message_blocks_dict.update(
+                            {children_message_block_index: "blank message blocks"}
                         )
                     else:
-                        # Record all text message block indexes
-                        text_message_block_indexes_list.append(
-                            children_message_block_index
+                        # Record all text message blocks
+                        text_message_blocks_dict.update(
+                            {
+                                children_message_block_index: message_block_element[
+                                    "text_run"
+                                ]["content"]
+                            }
                         )
-                        # Delete all notified text message blocks
-                        if (
-                            18 < len(message_block_element["text_run"]["content"])
-                            and message_block_element["text_run"]["content"][19:24]
-                            == "【已通知】"
+                        # Record all notified text message blocks
+                        if is_text_message_notified_24_hours_before(
+                            message_block_element
                         ):
-                            text_message_notified_time = datetime.strptime(
-                                message_block_element["text_run"]["content"][:19],
-                                "%Y-%m-%d %H:%M:%S",
+                            notified_text_message_blocks_dict.update(
+                                {
+                                    children_message_block_index: message_block_element[
+                                        "text_run"
+                                    ]["content"]
+                                }
                             )
-                            # print(text_message_notified_time)
-                            current_time = datetime.now()
-                            time_difference = current_time - text_message_notified_time
-                            time_difference_seconds = time_difference.total_seconds()
-                            if 24 * 60 * 60 < time_difference_seconds:
-                                notified_text_message_block_indexes_list.append(
-                                    children_message_block_index
-                                )
-                                print(
-                                    f"deletion text message: {message_block_element["text_run"]["content"]}"
-                                )
                 elif message_block["block_type"] == 27:
-                    image_message_block_indexes_list.append(
-                        children_message_block_index
+                    image_message_blocks_dic.update(
+                        {children_message_block_index: "image message"}
                     )
 
-            # Add blank message block indexes to the deletion list
-            deletion_indexes_list += blank_message_block_indexes_list
-            # Add notified text message block indexes to the deletion list
-            deletion_indexes_list += notified_text_message_block_indexes_list
-            # Add deletion image message block indexes to the deletion list
-            if len(text_message_block_indexes_list) == len(
-                notified_text_message_block_indexes_list
-            ):
-                deletion_indexes_list += image_message_block_indexes_list
-            deletion_indexes_list.sort()
-            return deletion_indexes_list
+            # Add blank message blocks to the deletion dict
+            deletion_dict.update(blank_message_blocks_dict)
+            # Add notified text message blocks to the deletion dict
+            deletion_dict.update(notified_text_message_blocks_dict)
+            # Add deletion image message blocks to the deletion dict
+            if len(text_message_blocks_dict) == len(notified_text_message_blocks_dict):
+                deletion_dict.update(deletion_images_dict)
+            sorted_deletion_dict = dict(sorted(deletion_dict.items()))
+            return sorted_deletion_dict
 
         if len(self.message_blocks_list) != 0:
-            deletion_indexes_list = []
-            deletion_indexes_list = deleteBlankAndNotifiedMessageBLocks(
-                deletion_indexes_list
-            )
-            # print("origin deletion_indexes_list:", deletion_indexes_list)
-            if len(deletion_indexes_list) != 0:
-                deletion_indexes_array = np.asarray(deletion_indexes_list)
+            sorted_deletion_dict = getBlankAndNotifiedMessageBlockIndexes()
+            if len(sorted_deletion_dict) != 0:
+                # The dict does not fuction well.
+                # As processed indexes may be the same.
+                deletion_waiting_list = []
+                for index, (key, value) in enumerate(sorted_deletion_dict.items()):
+                    deletion_waiting_list.append({key - index: value})
                 # Feishu server executes the deletion step by step
-                deletion_indexes_waiting_array = deletion_indexes_array - np.arange(
-                    len(deletion_indexes_list)
-                )
-                deletion_indexes_waiting_list = deletion_indexes_waiting_array.tolist()
-                for deletion_waiting_index in deletion_indexes_waiting_list:
-                    print("deletion_waiting_index:", deletion_waiting_index)
-                    self.deleteBlocks(deletion_waiting_index)
-                    # pass
+                for deletion_waiting_dict in deletion_waiting_list:
+                    print("deletion_waiting_dict:", deletion_waiting_dict)
+                    self.delete_document_children_blocks(deletion_waiting_dict.key())
+                    pass
 
 
 if __name__ == "__main__":
@@ -348,10 +401,9 @@ if __name__ == "__main__":
         document_id[0],
         app_id[0],
         app_secret[0],
+        save_all_document_blocks_response_as_json=True,
+        debug=False,
     )
-
-    # with open("./all_document_blocks_response.json", "r", encoding="utf8") as f:
-    #     all_document_blocks_response = json.load(f)
 
     feishu_docs_api.deliverAndReplyMessages()
 

@@ -1,0 +1,372 @@
+{
+    "code": 0,
+    "data": {
+        "has_more": false,
+        "items": [
+            {
+                "block_id": "PHqvdzwg7obsazx6U3lc9OKkngd",
+                "block_type": 1,
+                "children": [
+                    "doxcnq0PgcpYgKKPh4kDVigJFkb",
+                    "Xr5GdeXKpoNYZTxYonXcAYLWn5f",
+                    "doxcnzSqrh3F4MSSvzycbb1zSkc",
+                    "PNuBdMgAko2BrvxjRfIcQY0Jnqh",
+                    "doxcnVpR9e3mT8kd1Vi4d3mmoeg",
+                    "doxcnVuYLt8IOV040hHYehQV1wg",
+                    "doxcnGEQlWDlIuTnJ0GWggTRY3b",
+                    "doxcnnmPS4mo7UR6wC49bWGSxqg",
+                    "doxcn8UNhiLQqhDjTNlvJTnB7Je"
+                ],
+                "page": {
+                    "elements": [
+                        {
+                            "text_run": {
+                                "content": "家长留言自动通知文档-dev",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        }
+                    ],
+                    "style": {
+                        "align": 1
+                    }
+                },
+                "parent_id": ""
+            },
+            {
+                "block_id": "doxcnq0PgcpYgKKPh4kDVigJFkb",
+                "block_type": 3,
+                "heading1": {
+                    "elements": [
+                        {
+                            "text_run": {
+                                "content": "说明",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        }
+                    ],
+                    "style": {
+                        "align": 1,
+                        "folded": false
+                    }
+                },
+                "parent_id": "PHqvdzwg7obsazx6U3lc9OKkngd"
+            },
+            {
+                "block_id": "Xr5GdeXKpoNYZTxYonXcAYLWn5f",
+                "block_type": 19,
+                "callout": {
+                    "background_color": 2,
+                    "border_color": 2,
+                    "emoji_id": "bulb"
+                },
+                "children": [
+                    "Pc1wdK41WouOLAxjiKLcY4x5npb"
+                ],
+                "parent_id": "PHqvdzwg7obsazx6U3lc9OKkngd"
+            },
+            {
+                "block_id": "Pc1wdK41WouOLAxjiKLcY4x5npb",
+                "block_type": 2,
+                "parent_id": "Xr5GdeXKpoNYZTxYonXcAYLWn5f",
+                "text": {
+                    "elements": [
+                        {
+                            "text_run": {
+                                "content": "本文档用于将家长留言自动通知给同学们。",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        }
+                    ],
+                    "style": {
+                        "align": 1,
+                        "folded": false
+                    }
+                }
+            },
+            {
+                "block_id": "doxcnzSqrh3F4MSSvzycbb1zSkc",
+                "block_type": 19,
+                "callout": {
+                    "background_color": 2,
+                    "border_color": 2,
+                    "emoji_id": "bulb"
+                },
+                "children": [
+                    "doxcnEeIpALWnumnmZFnOzdLADb",
+                    "doxcnQdW2aS9GiS1DJLh6sDv8Gh"
+                ],
+                "parent_id": "PHqvdzwg7obsazx6U3lc9OKkngd"
+            },
+            {
+                "block_id": "doxcnEeIpALWnumnmZFnOzdLADb",
+                "block_type": 2,
+                "parent_id": "doxcnzSqrh3F4MSSvzycbb1zSkc",
+                "text": {
+                    "elements": [
+                        {
+                            "text_run": {
+                                "content": "请在下面的【家长留言区】",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        },
+                        {
+                            "text_run": {
+                                "content": "直接留言",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "text_color": 5,
+                                    "underline": false
+                                }
+                            }
+                        },
+                        {
+                            "text_run": {
+                                "content": "（如：请 XXX 打电话给家长），留言会在课间以",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        },
+                        {
+                            "text_run": {
+                                "content": "原文",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "text_color": 1,
+                                    "underline": false
+                                }
+                            }
+                        },
+                        {
+                            "text_run": {
+                                "content": "投屏形式自动通知同学们。",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        }
+                    ],
+                    "style": {
+                        "align": 1,
+                        "folded": false
+                    }
+                }
+            },
+            {
+                "block_id": "doxcnQdW2aS9GiS1DJLh6sDv8Gh",
+                "block_type": 2,
+                "parent_id": "doxcnzSqrh3F4MSSvzycbb1zSkc",
+                "text": {
+                    "elements": [
+                        {
+                            "text_run": {
+                                "content": "请勿使用评论！",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "text_color": 1,
+                                    "underline": false
+                                }
+                            }
+                        }
+                    ],
+                    "style": {
+                        "align": 1,
+                        "folded": false
+                    }
+                }
+            },
+            {
+                "block_id": "PNuBdMgAko2BrvxjRfIcQY0Jnqh",
+                "block_type": 2,
+                "parent_id": "PHqvdzwg7obsazx6U3lc9OKkngd",
+                "text": {
+                    "elements": [
+                        {
+                            "text_run": {
+                                "content": "请勿删除标题（家长留言区）！",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        }
+                    ],
+                    "style": {
+                        "align": 1,
+                        "folded": false
+                    }
+                }
+            },
+            {
+                "block_id": "doxcnVpR9e3mT8kd1Vi4d3mmoeg",
+                "block_type": 2,
+                "parent_id": "PHqvdzwg7obsazx6U3lc9OKkngd",
+                "text": {
+                    "elements": [
+                        {
+                            "text_run": {
+                                "content": "",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        }
+                    ],
+                    "style": {
+                        "align": 1,
+                        "folded": false
+                    }
+                }
+            },
+            {
+                "block_id": "doxcnVuYLt8IOV040hHYehQV1wg",
+                "block_type": 3,
+                "heading1": {
+                    "elements": [
+                        {
+                            "text_run": {
+                                "content": "家长留言区",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        }
+                    ],
+                    "style": {
+                        "align": 1,
+                        "folded": false
+                    }
+                },
+                "parent_id": "PHqvdzwg7obsazx6U3lc9OKkngd"
+            },
+            {
+                "block_id": "doxcnGEQlWDlIuTnJ0GWggTRY3b",
+                "block_type": 2,
+                "parent_id": "PHqvdzwg7obsazx6U3lc9OKkngd",
+                "text": {
+                    "elements": [
+                        {
+                            "text_run": {
+                                "content": "2024-12-03 09:59:16【已通知】请王炎打电话给妈妈",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        }
+                    ],
+                    "style": {
+                        "align": 1,
+                        "folded": false
+                    }
+                }
+            },
+            {
+                "block_id": "doxcnnmPS4mo7UR6wC49bWGSxqg",
+                "block_type": 2,
+                "parent_id": "PHqvdzwg7obsazx6U3lc9OKkngd",
+                "text": {
+                    "elements": [
+                        {
+                            "text_run": {
+                                "content": "2024-12-03 10:30:04【已通知】请方识然有空打电话给妈妈",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        }
+                    ],
+                    "style": {
+                        "align": 1,
+                        "folded": false
+                    }
+                }
+            },
+            {
+                "block_id": "doxcn8UNhiLQqhDjTNlvJTnB7Je",
+                "block_type": 2,
+                "parent_id": "PHqvdzwg7obsazx6U3lc9OKkngd",
+                "text": {
+                    "elements": [
+                        {
+                            "text_run": {
+                                "content": "2024-12-03 15:04:24【已通知】请王炎下午放学后去正门口保安室拿备换的运动鞋。",
+                                "text_element_style": {
+                                    "bold": false,
+                                    "inline_code": false,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": false
+                                }
+                            }
+                        }
+                    ],
+                    "style": {
+                        "align": 1,
+                        "folded": false
+                    }
+                }
+            }
+        ]
+    },
+    "msg": "success"
+}

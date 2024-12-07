@@ -4,11 +4,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import re
 from docx import Document
-import numpy as np
 
 
 class FeishuDocsAPI:
-    def obtainTenantAccessToken(self, app_id, app_secret):
+    def obtain_tenant_access_token(self, app_id, app_secret):
         url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
         headers = {
             "Content-Type": "application/json; charset=utf-8",
@@ -22,7 +21,7 @@ class FeishuDocsAPI:
         response_json = json.loads(response.text)
         return response_json["tenant_access_token"]
 
-    def obtainAllDocumentBlocks(self):
+    def obtain_all_document_blocks(self):
         url = (
             "https://open.feishu.cn/open-apis/docx/v1/documents/"
             + self.document_id
@@ -36,7 +35,7 @@ class FeishuDocsAPI:
         response_json = json.loads(response.text)
         return response_json
 
-    def preprocessAllDocumentBlocks(self, debug):
+    def preprocess_all_document_blocks(self, debug):
         if debug is True:
             script_dir = Path(__file__).resolve().parent
             all_document_blocks_response_json_path = (
@@ -47,7 +46,7 @@ class FeishuDocsAPI:
             ) as f:
                 self.all_document_blocks_response = json.load(f)
         else:
-            self.all_document_blocks_response = self.obtainAllDocumentBlocks()
+            self.all_document_blocks_response = self.obtain_all_document_blocks()
         self.all_document_blocks = self.all_document_blocks_response["data"]["items"]
         self.all_document_children_block_ids = self.all_document_blocks[0]["children"]
         for block_index, block in enumerate(self.all_document_blocks):
@@ -100,7 +99,7 @@ class FeishuDocsAPI:
         document_id,
         app_id,
         app_secret,
-        message_heading_text="家长留言区",
+        message_heading_text,
         save_all_document_blocks_response_as_json=True,
         debug=True,
     ) -> None:
@@ -108,7 +107,7 @@ class FeishuDocsAPI:
         self.notice_path = Path()
         self.notice_message_heading = notice_message_heading
         self.document_id = document_id
-        tenant_access_token = self.obtainTenantAccessToken(app_id, app_secret)
+        tenant_access_token = self.obtain_tenant_access_token(app_id, app_secret)
         self.access_token = tenant_access_token
         self.all_document_blocks_response = None
         self.all_document_blocks = []
@@ -121,7 +120,7 @@ class FeishuDocsAPI:
         self.message_block_start_index = None
         self.children_message_block_start_index = None
         self.message_blocks_list = []
-        self.preprocessAllDocumentBlocks(debug)
+        self.preprocess_all_document_blocks(debug)
         script_dir = Path(__file__).resolve().parent
         all_document_blocks_response_path = (
             script_dir / "all_document_blocks_response.json"
@@ -130,7 +129,7 @@ class FeishuDocsAPI:
             with open(all_document_blocks_response_path, "w+", encoding="utf8") as f:
                 json.dump(self.all_document_blocks_response, f, ensure_ascii=False)
 
-    def obtainPlainDocumentTextContent(self):
+    def obtain_plain_document_text_content(self):
         url = (
             "https://open.feishu.cn/open-apis/docx/v1/documents/"
             + self.document_id
@@ -144,7 +143,7 @@ class FeishuDocsAPI:
         response_json = json.loads(response.text)
         return response_json
 
-    def updateBlock(self, block):
+    def update_block(self, block):
         block_id = block["block_id"]
         url = (
             "https://open.feishu.cn/open-apis/docx/v1/documents/"
@@ -176,7 +175,7 @@ class FeishuDocsAPI:
             response_json_content = response_json_element["text_run"]["content"]
             print("updated block:", response_json_content)
 
-    def checkNoticeExists(self):
+    def check_notice_exists(self):
         now = datetime.now()
         current_date = now.date()
         # print(f"current_date: {current_date}")
@@ -191,7 +190,7 @@ class FeishuDocsAPI:
             if notice_template_path.exists():
                 notice_path.write_bytes(notice_template_path.read_bytes())
 
-    def deliverAndReplyMessages(self):
+    def deliver_and_reply_messages(self):
         def is_after_yesterday_1900(text_message_notified_time):
             now = datetime.now()
             yesterday = now - timedelta(days=1)
@@ -203,7 +202,7 @@ class FeishuDocsAPI:
             )
             return yesterday_19_00 < text_message_notified_time <= yesterday_23_59
 
-        self.checkNoticeExists()
+        self.check_notice_exists()
         pending_message_blocks_list = []
         for message_block_index, message_block in enumerate(
             self.all_document_blocks[self.message_block_start_index :],
@@ -283,7 +282,7 @@ class FeishuDocsAPI:
         response = requests.request("DELETE", url, headers=headers, data=payload)
         print("delete document children blocks response:", response.text)
 
-    def deleteNotifiedMessages(self):
+    def delete_notified_messages(self):
         # Deletion is executed based on children blocks, not item blocks.
 
         def is_text_message_notified_24_hours_before(message_block_element):
@@ -306,7 +305,7 @@ class FeishuDocsAPI:
             else:
                 return False
 
-        def getBlankAndNotifiedMessageBlockIndexes():
+        def obtain_blank_and_notified_message_blocks():
             deletion_dict = {}
             deletion_images_dict = {}
 
@@ -367,7 +366,7 @@ class FeishuDocsAPI:
             return sorted_deletion_dict
 
         if len(self.message_blocks_list) != 0:
-            sorted_deletion_dict = getBlankAndNotifiedMessageBlockIndexes()
+            sorted_deletion_dict = obtain_blank_and_notified_message_blocks()
             if len(sorted_deletion_dict) != 0:
                 # The dict does not fuction well.
                 # As processed indexes may be the same.
@@ -401,10 +400,11 @@ if __name__ == "__main__":
         document_id[0],
         app_id[0],
         app_secret[0],
+        message_heading_text="家长留言区",
         save_all_document_blocks_response_as_json=True,
         debug=False,
     )
 
-    feishu_docs_api.deliverAndReplyMessages()
+    feishu_docs_api.deliver_and_reply_messages()
 
-    feishu_docs_api.deleteNotifiedMessages()
+    feishu_docs_api.delete_notified_messages()

@@ -7,19 +7,207 @@ from docx import Document
 
 
 class FeishuDocsAPI:
+    def __init__(
+        self,
+        notice_message_heading,
+        notice_dir,
+        document_id,
+        app_id,
+        app_secret,
+        message_heading_text,
+        debug_offline_all_document_comments_response_json=False,
+        save_all_document_blocks_response_as_json=True,
+        save_all_document_comments_response_as_json=True,
+        debug_offline_all_document_blocks_response_json=False,
+    ) -> None:
+        self.notice_dir = Path(notice_dir)
+        self.notice_path = Path()
+        script_dir = Path(__file__).resolve().parent
+        self.notice_message_heading = notice_message_heading
+        self.document_id = document_id
+        tenant_access_token = self.obtain_tenant_access_token(app_id, app_secret)
+        self.access_token = tenant_access_token
+        # Process all document comments firstly.
+        # Unsolved comments need to be updated to the document.
+        self.all_document_comments_response = None
+        self.unsolved_document_comments_list = []
+        self.preprocess_all_document_comments(
+            debug_offline_all_document_comments_response_json
+        )
+        all_document_comments_response_path = (
+            script_dir / "all_document_comments_response.json"
+        )
+        if save_all_document_comments_response_as_json is True:
+            with open(all_document_comments_response_path, "w+", encoding="utf8") as f:
+                json.dump(self.all_document_comments_response, f, ensure_ascii=False)
+        # Process all document blocks.
+        self.all_document_blocks_response = None
+        self.all_document_blocks = []
+        # The first block is the document title.
+        self.all_document_children_block_ids = []
+        self.message_heading_text = message_heading_text
+        self.message_heading_block_id = None
+        self.item_message_heading_block_index = None
+        self.children_message_heading_block_index = None
+        self.item_message_block_start_index = None
+        self.children_message_block_start_index = None
+        self.message_blocks_list = []
+        self.preprocess_all_document_blocks(
+            debug_offline_all_document_blocks_response_json
+        )
+        all_document_blocks_response_path = (
+            script_dir / "all_document_blocks_response.json"
+        )
+        if save_all_document_blocks_response_as_json is True:
+            with open(all_document_blocks_response_path, "w+", encoding="utf8") as f:
+                json.dump(self.all_document_blocks_response, f, ensure_ascii=False)
+
     def obtain_tenant_access_token(self, app_id, app_secret):
         url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
         headers = {
             "Content-Type": "application/json; charset=utf-8",
         }
-        data = {
-            "app_id": app_id,
-            "app_secret": app_secret,
-        }
-        data_json = json.dumps(data)
-        response = requests.request("POST", url, headers=headers, data=data_json)
+        payload = json.dumps(
+            {
+                "app_id": app_id,
+                "app_secret": app_secret,
+            }
+        )
+        response = requests.request("POST", url, headers=headers, data=payload)
         response_json = json.loads(response.text)
         return response_json["tenant_access_token"]
+
+    # Methods for comments.
+
+    def obtain_all_document_comments(self):
+        url = (
+            "https://open.feishu.cn/open-apis/drive/v1/files/"
+            + self.document_id
+            + "/comments?file_type=docx"
+        )
+        payload = ""
+        access_token = "Bearer " + self.access_token
+        headers = {"Authorization": access_token}
+        response = requests.request("GET", url, headers=headers, data=payload)
+        # print(response.text)
+        response_json = json.loads(response.text)
+        return response_json
+
+    def delete_a_reply(self, document_comment):
+        # Deprecated
+        # The document app can only delete replies created by itself.
+        reply_id = document_comment["reply_list"]["replies"][0]["reply_id"]
+        url = (
+            "https://open.feishu.cn/open-apis/drive/v1/files/"
+            + self.document_id
+            + "/comments/"
+            + document_comment["comment_id"]
+            + "/replies/"
+            + reply_id
+            + "?file_type=docx"
+        )
+        payload = ""
+        access_token = "Bearer " + self.access_token
+        headers = {"Authorization": access_token}
+        response = requests.request("DELETE", url, headers=headers, data=payload)
+        # print(response.text)
+        response_json = json.loads(response.text)
+        return response_json
+
+    def solve_a_reply(self, document_comment):
+        url = (
+            "https://open.feishu.cn/open-apis/drive/v1/files/"
+            + self.document_id
+            + "/comments/"
+            + document_comment["comment_id"]
+            + "?file_type=docx"
+        )
+        payload = json.dumps({"is_solved": True})  # type: ignore
+        access_token = "Bearer " + self.access_token
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": access_token,
+        }
+        response = requests.request("PATCH", url, headers=headers, data=payload)
+        # print(response.text)
+        response_json = json.loads(response.text)
+        return response_json
+
+    def preprocess_all_document_comments(
+        self, debug_offline_all_document_comments_json
+    ):
+        if debug_offline_all_document_comments_json is True:
+            script_dir = Path(__file__).resolve().parent
+            all_document_comments_response_json_path = (
+                script_dir / "all_document_comments_response.json"
+            )
+            with open(
+                all_document_comments_response_json_path, "r", encoding="utf8"
+            ) as f:
+                self.all_document_comments_response = json.load(f)
+        else:
+            self.all_document_comments_response = self.obtain_all_document_comments()
+        self.all_document_comments = self.all_document_comments_response["data"][
+            "items"
+        ]
+        for document_comment in self.all_document_comments:
+            # Process unsolved comments only.
+            if document_comment["solver_user_id"] is None:
+                self.unsolved_document_comments_list.append(document_comment)
+            else:
+                continue
+        print(
+            "{} unsolved document comment(s) obtained".format(
+                len(self.unsolved_document_comments_list)
+            )
+        )
+        for unsolved_document_comment in self.unsolved_document_comments_list:
+            # Process unsolved comments only.
+            reply = unsolved_document_comment["reply_list"]["replies"][0]
+            unsolved_document_comment_text = reply["content"]["elements"][0][
+                "text_run"
+            ]["text"]
+            try:
+                create_blocks_response_json = self.create_blocks(
+                    unsolved_document_comment_text
+                )
+                if create_blocks_response_json["code"] == 0:
+                    create_blocks_response_content = create_blocks_response_json[
+                        "data"
+                    ]["children"][0]["text"]["elements"][0]["text_run"]["content"]
+                    print(
+                        "sucessfully created a document children block based on the comment:",
+                        create_blocks_response_content,
+                    )
+                    try:
+                        solve_a_reply_response_json = self.solve_a_reply(
+                            document_comment
+                        )
+                        if solve_a_reply_response_json["code"] == 0:
+                            print(
+                                "sucessfully solve the comment:",
+                                unsolved_document_comment_text,
+                            )
+                    except Exception as e:
+                        print(f"A error occurred when calling delete_a_reply: {e}")
+            except Exception as e:
+                print(f"An error occurred when calling create_blocks: {e}")
+
+    # Methods for document blocks.
+
+    def obtain_plain_document_text_content(self):
+        url = (
+            "https://open.feishu.cn/open-apis/docx/v1/documents/"
+            + self.document_id
+            + "/raw_content"
+        )
+        payload = ""
+        access_token = "Bearer " + self.access_token
+        headers = {"Authorization": access_token}
+        response = requests.request("GET", url, headers=headers, data=payload)
+        # print(response.text)
+        response_json = json.loads(response.text)
+        return response_json
 
     def obtain_all_document_blocks(self):
         url = (
@@ -35,8 +223,10 @@ class FeishuDocsAPI:
         response_json = json.loads(response.text)
         return response_json
 
-    def preprocess_all_document_blocks(self, debug):
-        if debug is True:
+    def preprocess_all_document_blocks(
+        self, debug_offline_all_document_blocks_response_json
+    ):
+        if debug_offline_all_document_blocks_response_json is True:
             script_dir = Path(__file__).resolve().parent
             all_document_blocks_response_json_path = (
                 script_dir / "all_document_blocks_response.json"
@@ -71,7 +261,7 @@ class FeishuDocsAPI:
                 ]
                 break
         # The first message block index is the NEXT block of the `message_heading_text``.
-        self.message_block_start_index = self.item_message_heading_block_index + 1
+        self.item_message_block_start_index = self.item_message_heading_block_index + 1
 
         # The first block is the document title (parent block) which could not be deleted.
         # Only the children blocks could be deleted.
@@ -92,58 +282,45 @@ class FeishuDocsAPI:
                 )
                 break
 
-    def __init__(
-        self,
-        notice_message_heading,
-        notice_dir,
-        document_id,
-        app_id,
-        app_secret,
-        message_heading_text,
-        save_all_document_blocks_response_as_json=True,
-        debug=True,
-    ) -> None:
-        self.notice_dir = Path(notice_dir)
-        self.notice_path = Path()
-        self.notice_message_heading = notice_message_heading
-        self.document_id = document_id
-        tenant_access_token = self.obtain_tenant_access_token(app_id, app_secret)
-        self.access_token = tenant_access_token
-        self.all_document_blocks_response = None
-        self.all_document_blocks = []
-        self.all_document_children_block_ids = []
-        # The first block is the document title
-        self.message_heading_text = message_heading_text
-        self.message_heading_block_id = None
-        self.item_message_heading_block_index = None
-        self.children_message_heading_block_index = None
-        self.message_block_start_index = None
-        self.children_message_block_start_index = None
-        self.message_blocks_list = []
-        self.preprocess_all_document_blocks(debug)
-        script_dir = Path(__file__).resolve().parent
-        all_document_blocks_response_path = (
-            script_dir / "all_document_blocks_response.json"
-        )
-        if save_all_document_blocks_response_as_json is True and debug is False:
-            with open(all_document_blocks_response_path, "w+", encoding="utf8") as f:
-                json.dump(self.all_document_blocks_response, f, ensure_ascii=False)
-
-    def obtain_plain_document_text_content(self):
+    def create_blocks(self, text_content):
         url = (
             "https://open.feishu.cn/open-apis/docx/v1/documents/"
             + self.document_id
-            + "/raw_content"
+            + "/blocks/"
+            + self.document_id
+            + "/children?document_revision_id=-1"
         )
-        payload = ""
+        payload = json.dumps(
+            {
+                "children": [
+                    {
+                        "block_type": 2,
+                        "text": {
+                            "elements": [
+                                {
+                                    "text_run": {
+                                        "content": text_content,
+                                        "text_element_style": {},
+                                    }
+                                },
+                            ],
+                            "style": {},
+                        },
+                    }
+                ],
+                "index": -1,
+            }
+        )
         access_token = "Bearer " + self.access_token
-        headers = {"Authorization": access_token}
-        response = requests.request("GET", url, headers=headers, data=payload)
-        # print(response.text)
+        headers = {
+            "Authorization": access_token,
+            "Content-Type": "application/json; charset=utf-8",
+        }
+        response = requests.request("POST", url, headers=headers, data=payload)
         response_json = json.loads(response.text)
         return response_json
 
-    def update_block(self, block):
+    def update_blocks(self, block):
         block_id = block["block_id"]
         url = (
             "https://open.feishu.cn/open-apis/docx/v1/documents/"
@@ -205,8 +382,8 @@ class FeishuDocsAPI:
         self.check_notice_exists()
         pending_message_blocks_list = []
         for message_block_index, message_block in enumerate(
-            self.all_document_blocks[self.message_block_start_index :],
-            start=self.message_block_start_index,
+            self.all_document_blocks[self.item_message_block_start_index :],
+            start=self.item_message_block_start_index,
         ):
             if message_block["block_type"] == 2:
                 message_block_element = message_block["text"]["elements"][0]
@@ -256,7 +433,7 @@ class FeishuDocsAPI:
                         )
 
                         # Reply messages
-                        self.updateBlock(pending_message_block)
+                        self.update_blocks(pending_message_block)
 
     def delete_document_children_blocks(self, document_children_block_index):
         # The feishu official development document is weird.
@@ -280,7 +457,7 @@ class FeishuDocsAPI:
             "Content-Type": "application/json; charset=utf-8",
         }
         response = requests.request("DELETE", url, headers=headers, data=payload)
-        print("delete document children blocks response:", response.text)
+        # print("delete document children blocks response:", response.text)
 
     def delete_notified_messages(self):
         # Deletion is executed based on children blocks, not item blocks.
@@ -376,11 +553,13 @@ class FeishuDocsAPI:
                 # Feishu server executes the deletion step by step
                 for deletion_waiting_dict in deletion_waiting_list:
                     print("deletion_waiting_dict:", deletion_waiting_dict)
-                    self.delete_document_children_blocks(deletion_waiting_dict.key())
-                    pass
+                    self.delete_document_children_blocks(
+                        list(deletion_waiting_dict.keys())[0]
+                    )
 
 
 if __name__ == "__main__":
+    debug_dev_document = True
     now = datetime.now()
     formatted_time = now.strftime("%Y-%m-%d %H:%M:%S")
     print(f"now: {formatted_time}")
@@ -390,7 +569,10 @@ if __name__ == "__main__":
         txt_contents = file.read()
     notice_dir = re.findall(r"notice_dir:\s*(.*)", txt_contents)
     notice_message_heading = re.findall(r"notice_message_heading:\s*(.*)", txt_contents)
-    document_id = re.findall(r"document_id:\s*(.*)", txt_contents)
+    if debug_dev_document is True:
+        document_id = re.findall(r"dev_document_id:\s*(.*)", txt_contents)
+    else:
+        document_id = re.findall(r"document_id:\s*(.*)", txt_contents)
     app_id = re.findall(r"app_id:\s*(.*)", txt_contents)
     app_secret = re.findall(r"app_secret:\s*(.*)", txt_contents)
 
@@ -401,10 +583,10 @@ if __name__ == "__main__":
         app_id[0],
         app_secret[0],
         message_heading_text="家长留言区",
-        save_all_document_blocks_response_as_json=True,
-        debug=False,
+        save_all_document_blocks_response_as_json=False,
+        save_all_document_comments_response_as_json=True,
     )
 
-    feishu_docs_api.deliver_and_reply_messages()
+    # feishu_docs_api.deliver_and_reply_messages()
 
     feishu_docs_api.delete_notified_messages()

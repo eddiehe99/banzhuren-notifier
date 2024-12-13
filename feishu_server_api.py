@@ -246,15 +246,15 @@ class FeishuDocsAPI:
                 == self.message_heading_text
             ):
                 self.message_heading_block_id = block["block_id"]
-                print(
-                    f"{self.message_heading_text} block_id: ",
-                    self.message_heading_block_id,
-                )
+                # print(
+                #     f"{self.message_heading_text} block_id: ",
+                #     self.message_heading_block_id,
+                # )
                 self.item_message_heading_block_index = block_index
-                print(
-                    f"{self.message_heading_text} item_block_index: ",
-                    self.item_message_heading_block_index,
-                )
+                # print(
+                #     f"{self.message_heading_text} item_block_index: ",
+                #     self.item_message_heading_block_index,
+                # )
                 # The message_blocks_list does not contain the message title.
                 self.message_blocks_list = self.all_document_blocks[
                     self.item_message_heading_block_index + 1 :
@@ -273,10 +273,10 @@ class FeishuDocsAPI:
                 self.children_message_heading_block_index = (
                     document_children_block_id_index
                 )
-                print(
-                    f"{self.message_heading_text} children_block_index: ",
-                    self.children_message_heading_block_index,
-                )
+                # print(
+                #     f"{self.message_heading_text} children_block_index: ",
+                #     self.children_message_heading_block_index,
+                # )
                 self.children_message_block_start_index = (
                     self.children_message_heading_block_index + 1
                 )
@@ -379,7 +379,6 @@ class FeishuDocsAPI:
             )
             return yesterday_19_00 < text_message_notified_time <= yesterday_23_59
 
-        self.check_notice_exists()
         pending_message_blocks_list = []
         for message_block_index, message_block in enumerate(
             self.all_document_blocks[self.item_message_block_start_index :],
@@ -407,8 +406,9 @@ class FeishuDocsAPI:
                 else:
                     pending_message_blocks_list.append(message_block)
 
+        print("len(pending_message_blocks_list):", len(pending_message_blocks_list))
         if len(pending_message_blocks_list) != 0:
-            print("len(pending_message_blocks_list):", len(pending_message_blocks_list))
+            self.check_notice_exists()
             notice = Document(self.notice_path)
             target_paragraph_text = self.notice_message_heading
 

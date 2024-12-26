@@ -7,4 +7,4 @@ set "pythonFilePath=%currentDir%feishu_server_api.py"
 python "%pythonFilePath%"
 endlocal
 
-pause
+@REM pause

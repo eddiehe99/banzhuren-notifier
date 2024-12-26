@@ -27,6 +27,7 @@ class FeishuDocsAPI:
         self.document_id = document_id
         tenant_access_token = self.obtain_tenant_access_token(app_id, app_secret)
         self.access_token = tenant_access_token
+        self.str_specific_time_yesterday = "16-00"
         # Process all document comments firstly.
         # Unsolved comments need to be updated to the document.
         self.all_document_comments_response = None
@@ -368,16 +369,19 @@ class FeishuDocsAPI:
                 notice_path.write_bytes(notice_template_path.read_bytes())
 
     def deliver_and_reply_messages(self):
-        def is_after_yesterday_1900(text_message_notified_time):
+        def is_later_than_a_specific_time_yesterday(text_message_notified_time):
             now = datetime.now()
             yesterday = now - timedelta(days=1)
-            yesterday_19_00 = datetime(
-                yesterday.year, yesterday.month, yesterday.day, 19, 00
+            time_object = datetime.strptime(self.str_specific_time_yesterday, "%H-%M")
+            hours = time_object.hour
+            minutes = time_object.minute
+            specific_time_yesterday = datetime(
+                yesterday.year, yesterday.month, yesterday.day, hours, minutes
             )
             yesterday_23_59 = datetime(
                 yesterday.year, yesterday.month, yesterday.day, 23, 59, 59
             )
-            return yesterday_19_00 < text_message_notified_time <= yesterday_23_59
+            return specific_time_yesterday < text_message_notified_time <= yesterday_23_59
 
         pending_message_blocks_list = []
         for message_block_index, message_block in enumerate(
@@ -395,7 +399,7 @@ class FeishuDocsAPI:
                         message_block_element["text_run"]["content"][:19],
                         "%Y-%m-%d %H:%M:%S",
                     )
-                    if is_after_yesterday_1900(text_message_notified_time):
+                    if is_later_than_a_specific_time_yesterday(text_message_notified_time):
                         pending_message_blocks_list.append(message_block)
                         print("A message was left after 20:40 yesterday.")
                         continue

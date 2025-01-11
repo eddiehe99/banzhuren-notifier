@@ -556,11 +556,248 @@ class FeishuDocsAPI:
                     deletion_waiting_list.append({key - index: value})
                 # Feishu server executes the deletion step by step
                 for deletion_waiting_dict in deletion_waiting_list:
-                    print("deletion_waiting_dict:", deletion_waiting_dict)
                     self.delete_document_children_blocks(
                         list(deletion_waiting_dict.keys())[0]
                     )
+                    print("deletion_waiting_dict:", deletion_waiting_dict)
 
+class FeishuBaseAPI:
+    def __init__(
+        self,
+        notice_message_heading,
+        notice_dir,
+        app_id,
+        app_secret,
+        app_token,
+        table_id,
+        view_id,
+        save_search_records_response_path_as_json=True,
+    ) -> None:
+        self.notice_dir = Path(notice_dir)
+        self.notice_path = Path()
+        script_dir = Path(__file__).resolve().parent
+        self.notice_message_heading = notice_message_heading
+        tenant_access_token = self.obtain_tenant_access_token(app_id, app_secret)
+        self.access_token = tenant_access_token
+        self.str_specific_time_yesterday = "16-00"
+
+        """
+        The Base information
+        """
+        self.app_token = app_token
+        self.table_id = table_id
+        self.view_id = view_id
+        # The Base Records
+        self.search_records_response_json = {}
+        self.records = []
+        self.undelivered_records = []
+        # Records that need to be delivered the second time
+        self.undelivered_records_2 = []
+
+        self.preprocess_records()
+        search_records_response_path = script_dir / "search_records_response.json"
+        if save_search_records_response_path_as_json is True:
+            with open(search_records_response_path, "w+", encoding="utf8") as f:
+                json.dump(self.search_records_response_json, f, ensure_ascii=False)
+
+    def obtain_tenant_access_token(self, app_id, app_secret):
+        url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+        }
+        payload = json.dumps(
+            {
+                "app_id": app_id,
+                "app_secret": app_secret,
+            }
+        )
+        response = requests.request("POST", url, headers=headers, data=payload)
+        response_json = json.loads(response.text)
+        return response_json["tenant_access_token"]
+
+    def search_records(self):
+        url = (
+            "https://open.feishu.cn/open-apis/bitable/v1/apps/"
+            + self.app_token
+            + "/tables/"
+            + self.table_id
+            + "/records/search"
+        )
+        access_token = "Bearer " + self.access_token
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": access_token,
+        }
+        payload = json.dumps(
+            {
+                "view_id": self.view_id,
+            }
+        )
+        response = requests.request("POST", url, headers=headers, data=payload)
+        response_json = json.loads(response.text)
+        return response_json
+
+    def update_a_record(self, record, payload):
+        url = (
+            "https://open.feishu.cn/open-apis/bitable/v1/apps/"
+            + self.app_token
+            + "/tables/"
+            + self.table_id
+            + "/records/"
+            + record["record_id"]
+        )
+        access_token = "Bearer " + self.access_token
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": access_token,
+        }
+        response = requests.request("PUT", url, headers=headers, data=payload)
+        response_json = json.loads(response.text)
+        return response_json
+
+    def check_notice_exists(self):
+        now = datetime.now()
+        current_date = now.date()
+        # print(f"current_date: {current_date}")
+        notice_filename = str(current_date) + " 通知.docx"
+        notice_path = self.notice_dir / Path(notice_filename)
+        self.notice_path = Path(notice_path)
+        if not notice_path.exists():
+            notice_template_year_month = current_date.strftime("%Y-%m")
+            notice_template_path = (
+                self.notice_dir / f"{notice_template_year_month}-xx 通知.docx"
+            )
+            if notice_template_path.exists():
+                notice_path.write_bytes(notice_template_path.read_bytes())
+
+    def preprocess_records(self):
+        def is_later_than_a_specific_time_yesterday(first_notification_time):
+            now = datetime.now()
+            yesterday = now - timedelta(days=1)
+            time_object = datetime.strptime(self.str_specific_time_yesterday, "%H-%M")
+            hours = time_object.hour
+            minutes = time_object.minute
+            specific_time_yesterday = datetime(
+                yesterday.year, yesterday.month, yesterday.day, hours, minutes
+            )
+            yesterday_23_59 = datetime(
+                yesterday.year, yesterday.month, yesterday.day, 23, 59, 59
+            )
+            return specific_time_yesterday < first_notification_time <= yesterday_23_59
+
+        self.search_records_response_json = self.search_records()
+        self.records = self.search_records_response_json["data"]["items"]
+        for record in self.records:
+            if (
+                "是否已通知" not in record["fields"]
+                or record["fields"]["是否已通知"] is False
+            ):
+                self.undelivered_records.append(record)
+            else:
+                first_notification_timestamp_s = record["fields"]["通知时间"] / 1000
+                first_notification_time = datetime.fromtimestamp(
+                    first_notification_timestamp_s
+                )
+                if is_later_than_a_specific_time_yesterday(first_notification_time):
+                    if (
+                        "是否已第二次通知" not in record["fields"]
+                        or record["fields"]["是否已第二次通知"] is False
+                    ):
+                        self.undelivered_records_2.append(record)
+
+    def deliver_and_reply_messages(self):
+        def deliver_and_reply_records(records, annotation):
+            if len(records) != 0:
+                self.check_notice_exists()
+                notice = Document(self.notice_path)
+                target_paragraph_text = self.notice_message_heading
+                for paragraph_index, paragraph in enumerate(notice.paragraphs):
+                    if target_paragraph_text in paragraph.text:
+                        for record_index, record in enumerate(records):
+                            # Skip the demo
+                            if record["record_id"] == "recQRfdWut":
+                                continue
+                            # Deliver the message
+                            timestamp_s = datetime.now().timestamp()
+                            timestamp_ms = int(timestamp_s * 1000)
+                            first_notification_timestamp_s = (
+                                record["fields"]["通知时间"] / 1000
+                            )
+                            first_notification_time = datetime.fromtimestamp(
+                                first_notification_timestamp_s
+                            )
+                            if annotation == "":
+                                message_text = record["fields"]["留言内容"][0]["text"]
+                            elif annotation == "The second time:":
+                                message_text = (
+                                    first_notification_time.strftime("%Y-%m-%d %H:%M:%S")
+                                    + "【已通知】"
+                                    + record["fields"]["留言内容"][0]["text"]
+                                )
+                            new_paragraph = notice.add_paragraph(message_text)
+                            # notice.paragraphs.insert(paragraph_index + 1, new_paragraph)
+                            paragraph._p.addnext(new_paragraph._p)
+                            notice.save(self.notice_path)
+                            print(
+                                f"{annotation} delivered record text[{record_index}]: {message_text}"
+                            )
+
+                            # Confirm the reply
+                            if annotation == "":
+                                payload = json.dumps(
+                                    {"fields": {"是否已通知": True, "通知时间": timestamp_ms}}  # type: ignore
+                                )
+                                self.update_a_record(record, payload)
+                            else:
+                                payload = json.dumps(
+                                    {"fields": {"是否已第二次通知": True, "第二次通知时间": timestamp_ms}}  # type: ignore
+                                )
+                                self.update_a_record(record, payload)
+
+        deliver_and_reply_records(self.undelivered_records, "")
+        deliver_and_reply_records(self.undelivered_records_2, "The second time:")
+
+    def delete_a_record(self, record):
+        url = (
+            "https://open.feishu.cn/open-apis/bitable/v1/apps/"
+            + self.app_token
+            + "/tables/"
+            + self.table_id
+            + "/records/"
+            + record["record_id"]
+        )
+        access_token = "Bearer " + self.access_token
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": access_token,
+        }
+        payload = ""
+        response = requests.request("DELETE", url, headers=headers, data=payload)
+        response_json = json.loads(response.text)
+        if response_json["code"] == 0:
+            print(f"Deleted record: {record["fields"]["留言内容"][0]["text"]}")
+        return response_json
+
+    def delete_notified_messages(self):
+        def is_message_notified_36_hours_before(record):
+            first_notification_timestamp_s = record["fields"]["通知时间"] / 1000
+            first_notification_time = datetime.fromtimestamp(
+                first_notification_timestamp_s
+            )
+            current_time = datetime.now()
+            time_difference = current_time - first_notification_time
+            time_difference_seconds = time_difference.total_seconds()
+            if 36 * 60 * 60 < time_difference_seconds:
+                return True
+            else:
+                return False
+
+        for record in self.records:
+            # Skip the demo
+            if record["record_id"] == "recQRfdWut":
+                continue
+            if is_message_notified_36_hours_before(record):
+                self.delete_a_record(record)
 
 if __name__ == "__main__":
     debug_dev_document = False
@@ -594,3 +831,18 @@ if __name__ == "__main__":
     feishu_docs_api.deliver_and_reply_messages()
 
     feishu_docs_api.delete_notified_messages()
+
+    feishu_base_api = FeishuBaseAPI(
+        notice_message_heading[0],
+        notice_dir[0],
+        app_id[0],
+        app_secret[0],
+        app_token="MLxwbmjTwaAepFscW9pcTBIXnKc",
+        table_id="tblpHMhKnUuPqotg",
+        view_id="vewo7nPYcy",
+        save_search_records_response_path_as_json=True,
+    )
+
+    feishu_base_api.deliver_and_reply_messages()
+
+    feishu_base_api.delete_notified_messages()

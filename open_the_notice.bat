@@ -42,7 +42,7 @@ echo.
 chcp 65001 >nul
 
 set "CURRENT_DIR=%~dp0"
-for /f "tokens=1,2 delims=:" %%i in (%CURRENT_DIR%configuration.txt) do (
+for /f "tokens=1,2 delims==" %%i in (%CURRENT_DIR%configuration.txt) do (
     set "%%i=%%j"
     @REM echo %%i is %%j
 )

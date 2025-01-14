@@ -6,11 +6,11 @@ import re
 from docx import Document
 
 
-class FeishuDocsAPI:
+class FeishuDocumentAPI:
     def __init__(
         self,
-        notice_message_heading,
         notice_dir,
+        notice_message_heading,
         document_id,
         app_id,
         app_secret,
@@ -381,7 +381,9 @@ class FeishuDocsAPI:
             yesterday_23_59 = datetime(
                 yesterday.year, yesterday.month, yesterday.day, 23, 59, 59
             )
-            return specific_time_yesterday < text_message_notified_time <= yesterday_23_59
+            return (
+                specific_time_yesterday < text_message_notified_time <= yesterday_23_59
+            )
 
         pending_message_blocks_list = []
         for message_block_index, message_block in enumerate(
@@ -399,7 +401,9 @@ class FeishuDocsAPI:
                         message_block_element["text_run"]["content"][:19],
                         "%Y-%m-%d %H:%M:%S",
                     )
-                    if is_later_than_a_specific_time_yesterday(text_message_notified_time):
+                    if is_later_than_a_specific_time_yesterday(
+                        text_message_notified_time
+                    ):
                         pending_message_blocks_list.append(message_block)
                         print("A message was left after 20:40 yesterday.")
                         continue
@@ -561,11 +565,12 @@ class FeishuDocsAPI:
                     )
                     print("deletion_waiting_dict:", deletion_waiting_dict)
 
+
 class FeishuBaseAPI:
     def __init__(
         self,
-        notice_message_heading,
         notice_dir,
+        notice_message_heading,
         app_id,
         app_secret,
         app_token,
@@ -705,6 +710,11 @@ class FeishuBaseAPI:
                     ):
                         self.undelivered_records_2.append(record)
 
+        print(f"{len(self.undelivered_records)} undelivered records")
+        print(
+            f"{len(self.undelivered_records_2)} record(s) need(s) to be undelivered for the second time"
+        )
+
     def deliver_and_reply_messages(self):
         def deliver_and_reply_records(records, annotation):
             if len(records) != 0:
@@ -720,17 +730,19 @@ class FeishuBaseAPI:
                             # Deliver the message
                             timestamp_s = datetime.now().timestamp()
                             timestamp_ms = int(timestamp_s * 1000)
-                            first_notification_timestamp_s = (
-                                record["fields"]["通知时间"] / 1000
-                            )
-                            first_notification_time = datetime.fromtimestamp(
-                                first_notification_timestamp_s
-                            )
                             if annotation == "":
                                 message_text = record["fields"]["留言内容"][0]["text"]
                             elif annotation == "The second time:":
+                                first_notification_timestamp_s = (
+                                    record["fields"]["通知时间"] / 1000
+                                )
+                                first_notification_time = datetime.fromtimestamp(
+                                    first_notification_timestamp_s
+                                )
                                 message_text = (
-                                    first_notification_time.strftime("%Y-%m-%d %H:%M:%S")
+                                    first_notification_time.strftime(
+                                        "%Y-%m-%d %H:%M:%S"
+                                    )
                                     + "【已通知】"
                                     + record["fields"]["留言内容"][0]["text"]
                                 )
@@ -796,53 +808,78 @@ class FeishuBaseAPI:
             # Skip the demo
             if record["record_id"] == "recQRfdWut":
                 continue
-            if is_message_notified_36_hours_before(record):
-                self.delete_a_record(record)
+            if (
+                "是否已通知" in record["fields"]
+                and record["fields"]["是否已通知"] is True
+            ):
+                if is_message_notified_36_hours_before(record):
+                    self.delete_a_record(record)
+
 
 if __name__ == "__main__":
     debug_dev_document = False
     now = datetime.now()
     formatted_time = now.strftime("%Y-%m-%d %H:%M:%S")
     print(f"now: {formatted_time}")
+
     script_dir = Path(__file__).resolve().parent
     configuration_path = script_dir / "configuration.txt"
+    config_patterns = {
+        "notice_dir": r"notice_dir=\s*(.*)",
+        "notice_message_heading": r"notice_message_heading=\s*(.*)",
+        "resource": r"resource=\s*(.*)",
+        "app_id": r"app_id=\s*(.*)",
+        "app_secret": r"app_secret=\s*(.*)",
+        "document_id": r"document_id=\s*(.*)",
+        "dev_document_id": r"dev_document_id=\s*(.*)",
+        "message_heading_text": r"message_heading_text=\s*(.*)",
+        "app_token": r"app_token=\s*(.*)",
+        "table_id": r"table_id=\s*(.*)",
+        "view_id": r"view_id=\s*(.*)",
+    }
+
+    config = {key: None for key in config_patterns}
+
     with open(configuration_path, "r", encoding="utf-8") as file:
-        txt_contents = file.read()
-    notice_dir = re.findall(r"notice_dir:\s*(.*)", txt_contents)
-    notice_message_heading = re.findall(r"notice_message_heading:\s*(.*)", txt_contents)
-    if debug_dev_document is True:
-        document_id = re.findall(r"dev_document_id:\s*(.*)", txt_contents)
-    else:
-        document_id = re.findall(r"document_id:\s*(.*)", txt_contents)
-    app_id = re.findall(r"app_id:\s*(.*)", txt_contents)
-    app_secret = re.findall(r"app_secret:\s*(.*)", txt_contents)
+        for line in file:
+            for key, pattern in config_patterns.items():
+                match = re.search(pattern, line)
+                if match and match.group(1):
+                    config[key] = match.group(1).strip()
 
-    feishu_docs_api = FeishuDocsAPI(
-        notice_message_heading[0],
-        notice_dir[0],
-        document_id[0],
-        app_id[0],
-        app_secret[0],
-        message_heading_text="家长留言区",
-        save_all_document_blocks_response_as_json=False,
-        save_all_document_comments_response_as_json=True,
-    )
+    if debug_dev_document and config["dev_document_id"]:
+        config["document_id"] = config["dev_document_id"]
+    elif not debug_dev_document and config["document_id"]:
+        pass
 
-    feishu_docs_api.deliver_and_reply_messages()
+    if config["resource"] is None:
+        config["resource"] = "base"
 
-    feishu_docs_api.delete_notified_messages()
-
-    feishu_base_api = FeishuBaseAPI(
-        notice_message_heading[0],
-        notice_dir[0],
-        app_id[0],
-        app_secret[0],
-        app_token="MLxwbmjTwaAepFscW9pcTBIXnKc",
-        table_id="tblpHMhKnUuPqotg",
-        view_id="vewo7nPYcy",
-        save_search_records_response_path_as_json=True,
-    )
-
-    feishu_base_api.deliver_and_reply_messages()
-
-    feishu_base_api.delete_notified_messages()
+    if config["resource"] == "document" or config["resource"] == "both":
+        print("\nUsing Feishu Document:")
+        feishu_docs_api = FeishuDocumentAPI(
+            notice_dir=config["notice_dir"],
+            notice_message_heading=config["notice_message_heading"],
+            document_id=config["document_id"],
+            app_id=config["app_id"],
+            app_secret=config["app_secret"],
+            message_heading_text=config["message_heading_text"],
+            save_all_document_blocks_response_as_json=False,
+            save_all_document_comments_response_as_json=True,
+        )
+        feishu_docs_api.deliver_and_reply_messages()
+        feishu_docs_api.delete_notified_messages()
+    if config["resource"] == "base" or config["resource"] == "both":
+        print("\nUsing Feishu Base:")
+        feishu_base_api = FeishuBaseAPI(
+            notice_dir=config["notice_dir"],
+            notice_message_heading=config["notice_message_heading"],
+            app_id=config["app_id"],
+            app_secret=config["app_secret"],
+            app_token=config["app_token"],
+            table_id=config["table_id"],
+            view_id=config["view_id"],
+            save_search_records_response_path_as_json=True,
+        )
+        feishu_base_api.deliver_and_reply_messages()
+        feishu_base_api.delete_notified_messages()

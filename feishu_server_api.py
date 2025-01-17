@@ -17,8 +17,8 @@ class FeishuDocumentAPI:
         message_heading_text,
         debug_offline_all_document_comments_response_json=False,
         save_all_document_blocks_response_as_json=True,
-        save_all_document_comments_response_as_json=True,
         debug_offline_all_document_blocks_response_json=False,
+        save_all_document_comments_response_as_json=True,
     ) -> None:
         self.notice_dir = Path(notice_dir)
         self.notice_path = Path()
@@ -78,7 +78,9 @@ class FeishuDocumentAPI:
         response_json = json.loads(response.text)
         return response_json["tenant_access_token"]
 
-    # Methods for comments.
+    """
+    Methods for comments.
+    """
 
     def obtain_all_document_comments(self):
         url = (
@@ -134,7 +136,36 @@ class FeishuDocumentAPI:
         response_json = json.loads(response.text)
         return response_json
 
-    def preprocess_all_document_comments(
+    def delete_a_reply(self, document_comment):
+        url = (
+            "https://open.feishu.cn/open-apis/drive/v1/files/"
+            + self.document_id
+            + "/comments/"
+            + document_comment["comment_id"]
+            + "/replies/"
+            + document_comment["comment_id"]
+            + "?file_type=docx"
+        )
+        payload = json.dumps({})
+        access_token = "Bearer " + self.access_token
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": access_token,
+        }
+        response = requests.request("DELETE", url, headers=headers, data=payload)
+        # print(response.text)
+        response_json = json.loads(response.text)
+
+        reply = document_comment["reply_list"]["replies"][0]
+        document_comment_text = reply["content"]["elements"][0]["text_run"][
+            "text"
+        ].replace("\n", " ")
+        if response_json["code"] == 0:
+            print(f"Sucessfully delete the reply: {document_comment_text}")
+
+        return response_json
+
+    def preprocess_all_document_comments_archived(
         self, debug_offline_all_document_comments_json
     ):
         if debug_offline_all_document_comments_json is True:
@@ -167,7 +198,7 @@ class FeishuDocumentAPI:
             reply = unsolved_document_comment["reply_list"]["replies"][0]
             unsolved_document_comment_text = reply["content"]["elements"][0][
                 "text_run"
-            ]["text"]
+            ]["text"].replace("\n", " ")
             try:
                 create_blocks_response_json = self.create_blocks(
                     unsolved_document_comment_text
@@ -194,7 +225,118 @@ class FeishuDocumentAPI:
             except Exception as e:
                 print(f"An error occurred when calling create_blocks: {e}")
 
-    # Methods for document blocks.
+    def preprocess_all_document_comments(
+        self, debug_offline_all_document_comments_json
+    ):
+        def is_comment_solved_48_hours_before(document_comment):
+            if document_comment["update_time"] is None:
+                return False
+            else:
+                document_comment_update_time_timestamp_s = document_comment[
+                    "update_time"
+                ]
+                document_comment_update_time = datetime.fromtimestamp(
+                    document_comment_update_time_timestamp_s
+                )
+                current_time = datetime.now()
+                time_difference = current_time - document_comment_update_time
+                time_difference_seconds = time_difference.total_seconds()
+                if 48 * 60 * 60 < time_difference_seconds:
+                    return True
+                else:
+                    return False
+
+        if debug_offline_all_document_comments_json is True:
+            script_dir = Path(__file__).resolve().parent
+            all_document_comments_response_json_path = (
+                script_dir / "all_document_comments_response.json"
+            )
+            with open(
+                all_document_comments_response_json_path, "r", encoding="utf8"
+            ) as f:
+                self.all_document_comments_response = json.load(f)
+        else:
+            self.all_document_comments_response = self.obtain_all_document_comments()
+            self.all_document_comments = self.all_document_comments_response["data"][
+                "items"
+            ]
+
+        for document_comment in self.all_document_comments:
+            # Delete comments solved 48 hours ago
+            if is_comment_solved_48_hours_before(document_comment):
+                self.delete_a_reply(document_comment)
+            # Process unsolved comments only.
+            if document_comment["solver_user_id"] is None:
+                self.unsolved_document_comments_list.append(document_comment)
+            else:
+                continue
+        print(
+            "{} unsolved document comment(s) obtained".format(
+                len(self.unsolved_document_comments_list)
+            )
+        )
+
+        if len(self.unsolved_document_comments_list) != 0:
+            self.check_notice_exists()
+            notice = Document(self.notice_path)
+            target_paragraph_text = self.notice_message_heading
+
+            target_paragraph = None
+            for paragraph_index, paragraph in enumerate(notice.paragraphs):
+                if target_paragraph_text in paragraph.text:
+                    target_paragraph = paragraph
+                    break
+
+            for unsolved_document_comment in self.unsolved_document_comments_list:
+                # Process unsolved comments only.
+                reply = unsolved_document_comment["reply_list"]["replies"][0]
+                unsolved_document_comment_text = reply["content"]["elements"][0][
+                    "text_run"
+                ]["text"].replace("\n", " ")
+                # Deliver messages
+                new_paragraph = notice.add_paragraph(unsolved_document_comment_text)
+                # notice.paragraphs.insert(paragraph_index + 1, new_paragraph)
+                target_paragraph._p.addnext(new_paragraph._p)
+                notice.save(self.notice_path)
+                try:
+                    now = datetime.now()
+                    formatted_time = now.strftime("%Y-%m-%d %H:%M:%S")
+                    # print(f"formatted_time: {formatted_time}")
+                    block_creation_text_content = (
+                        formatted_time + "【已通知】" + unsolved_document_comment_text
+                    )
+                    create_blocks_response_json = self.create_blocks(
+                        block_creation_text_content
+                    )
+                    if create_blocks_response_json["code"] == 0:
+                        create_blocks_response_content = create_blocks_response_json[
+                            "data"
+                        ]["children"][0]["text"]["elements"][0]["text_run"]["content"]
+                        print(
+                            "Sucessfully created a document children block based on the comment:",
+                            create_blocks_response_content,
+                        )
+                        try:
+                            solve_a_reply_response_json = self.solve_a_reply(
+                                document_comment
+                            )
+                            if solve_a_reply_response_json["code"] == 0:
+                                print(
+                                    "sucessfully solve the comment:",
+                                    unsolved_document_comment_text,
+                                )
+                        except Exception as e:
+                            print(f"A error occurred when calling delete_a_reply: {e}")
+                    else:
+                        print(
+                            f"A error occurred when creating a block based on the comment: {block_creation_text_content}"
+                        )
+                except Exception as e:
+                    print(f"An error occurred when calling create_blocks: {e}")
+
+    """'
+    Methods for document blocks.
+    """
 
     def obtain_plain_document_text_content(self):
         url = (
@@ -238,6 +380,7 @@ class FeishuDocumentAPI:
                 self.all_document_blocks_response = json.load(f)
         else:
             self.all_document_blocks_response = self.obtain_all_document_blocks()
+
         self.all_document_blocks = self.all_document_blocks_response["data"]["items"]
         self.all_document_children_block_ids = self.all_document_blocks[0]["children"]
         for block_index, block in enumerate(self.all_document_blocks):
@@ -261,7 +404,7 @@ class FeishuDocumentAPI:
                     self.item_message_heading_block_index + 1 :
                 ]
                 break
-        # The first message block index is the NEXT block of the `message_heading_text``.
+        # The first message block index is 1 block(s) under the `message_heading_text``.
         self.item_message_block_start_index = self.item_message_heading_block_index + 1
 
         # The first block is the document title (parent block) which could not be deleted.
@@ -717,57 +860,72 @@ class FeishuBaseAPI:
 
     def deliver_and_reply_messages(self):
         def deliver_and_reply_records(records, annotation):
-            if len(records) != 0:
-                self.check_notice_exists()
-                notice = Document(self.notice_path)
-                target_paragraph_text = self.notice_message_heading
-                for paragraph_index, paragraph in enumerate(notice.paragraphs):
-                    if target_paragraph_text in paragraph.text:
-                        for record_index, record in enumerate(records):
-                            # Skip the demo
-                            if record["record_id"] == "recQRfdWut":
-                                continue
-                            # Deliver the message
-                            timestamp_s = datetime.now().timestamp()
-                            timestamp_ms = int(timestamp_s * 1000)
-                            if annotation == "":
-                                message_text = record["fields"]["留言内容"][0]["text"]
-                            elif annotation == "The second time:":
+            self.check_notice_exists()
+            notice = Document(self.notice_path)
+            target_paragraph_text = self.notice_message_heading
+            for paragraph_index, paragraph in enumerate(notice.paragraphs):
+                if target_paragraph_text in paragraph.text:
+                    for record_index, record in enumerate(records):
+                        # Skip the demo
+                        if record["record_id"] == "recQRfdWut":
+                            continue
+                        # Deliver the message
+                        timestamp_s = datetime.now().timestamp()
+                        timestamp_ms = int(timestamp_s * 1000)
+                        # message_text may have several lines
+                        message_text = record["fields"]["留言内容"]
+                        for message_text_line_index, message_text_line in enumerate(
+                            message_text
+                        ):
+                            if annotation == "" and message_text_line["text"] != "\n":
+                                new_paragraph = notice.add_paragraph(
+                                    message_text_line["text"].replace("\n", "")
+                                )
+                                # notice.paragraphs.insert(paragraph_index + 1, new_paragraph)
+                                paragraph._p.addnext(new_paragraph._p)
+                            elif (
+                                annotation == "The second time:"
+                                and message_text_line["text"] != "\n"
+                            ):
                                 first_notification_timestamp_s = (
                                     record["fields"]["通知时间"] / 1000
                                 )
                                 first_notification_time = datetime.fromtimestamp(
                                     first_notification_timestamp_s
                                 )
-                                message_text = (
+                                message_text_line_2 = (
                                     first_notification_time.strftime(
                                         "%Y-%m-%d %H:%M:%S"
                                     )
                                     + "【已通知】"
-                                    + record["fields"]["留言内容"][0]["text"]
+                                    + message_text_line["text"].replace("\n", "")
                                 )
-                            new_paragraph = notice.add_paragraph(message_text)
-                            # notice.paragraphs.insert(paragraph_index + 1, new_paragraph)
-                            paragraph._p.addnext(new_paragraph._p)
-                            notice.save(self.notice_path)
-                            print(
-                                f"{annotation} delivered record text[{record_index}]: {message_text}"
+                                new_paragraph = notice.add_paragraph(
+                                    message_text_line_2
+                                )
+                                # notice.paragraphs.insert(paragraph_index + 1, new_paragraph)
+                                paragraph._p.addnext(new_paragraph._p)
+                        notice.save(self.notice_path)
+                        print(
+                            f"{annotation} delivered record text[{record_index}]: {message_text}"
+                        )
+
+                        # Confirm the reply
+                        if annotation == "":
+                            payload = json.dumps(
+                                {"fields": {"是否已通知": True, "通知时间": timestamp_ms}}  # type: ignore
                             )
+                            self.update_a_record(record, payload)
+                        else:
+                            payload = json.dumps(
+                                {"fields": {"是否已第二次通知": True, "第二次通知时间": timestamp_ms}}  # type: ignore
+                            )
+                            self.update_a_record(record, payload)
 
-                            # Confirm the reply
-                            if annotation == "":
-                                payload = json.dumps(
-                                    {"fields": {"是否已通知": True, "通知时间": timestamp_ms}}  # type: ignore
-                                )
-                                self.update_a_record(record, payload)
-                            else:
-                                payload = json.dumps(
-                                    {"fields": {"是否已第二次通知": True, "第二次通知时间": timestamp_ms}}  # type: ignore
-                                )
-                                self.update_a_record(record, payload)
-
-        deliver_and_reply_records(self.undelivered_records, "")
-        deliver_and_reply_records(self.undelivered_records_2, "The second time:")
+        if len(self.undelivered_records) != 0:
+            deliver_and_reply_records(self.undelivered_records, "")
+        if len(self.undelivered_records_2) != 0:
+            deliver_and_reply_records(self.undelivered_records_2, "The second time:")
 
     def delete_a_record(self, record):
         url = (
@@ -864,7 +1022,9 @@ if __name__ == "__main__":
             app_id=config["app_id"],
             app_secret=config["app_secret"],
             message_heading_text=config["message_heading_text"],
-            save_all_document_blocks_response_as_json=False,
+            debug_offline_all_document_comments_response_json=False,
+            save_all_document_blocks_response_as_json=True,
+            debug_offline_all_document_blocks_response_json=False,
             save_all_document_comments_response_as_json=True,
         )
         feishu_docs_api.deliver_and_reply_messages()

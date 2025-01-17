@@ -1,0 +1,22 @@
+# Parameters for `.bat` files
+HOSTNAME=
+USERNAME=
+PASSWORD=
+SHARED_FOLDER=
+
+# Parameters for Python
+notice_dir=
+notice_message_heading=
+# The resource could be `document`, `base`, `both`. The default is `base`.
+resource=
+app_id=
+app_secret=
+
+# Parameters for Feishu Document
+document_id=
+message_heading_text=
+
+# Parameters for Feishu Base
+app_token=
+table_id=
+view_id=

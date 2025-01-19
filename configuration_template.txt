@@ -9,8 +9,8 @@ notice_dir=
 notice_message_heading=通知栏
 # The resource could be `document`, `base`, `both`. The default is `document`.
 resource=document
-app_id=cli_a7cacfd2f43e100e
-app_secret=2Io4fqrt1fGeVu5Sh32MwxooMa8xM2pX
+app_id=
+app_secret=
 
 # Parameters for Feishu Document
 document_id=

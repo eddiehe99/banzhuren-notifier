@@ -1012,6 +1012,10 @@ if __name__ == "__main__":
 
     if config["resource"] is None:
         config["resource"] = "document"
+    if config["app_id"] is None:
+        config["app_id"] = "cli_a7cacfd2f43e100e"
+    if config["app_secret"] is None:
+        config["app_secret"] = "2Io4fqrt1fGeVu5Sh32MwxooMa8xM2pX"
 
     if config["resource"] == "document" or config["resource"] == "both":
         print("\nUsing Feishu Document:")

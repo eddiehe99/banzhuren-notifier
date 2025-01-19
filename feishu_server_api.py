@@ -1011,7 +1011,7 @@ if __name__ == "__main__":
         pass
 
     if config["resource"] is None:
-        config["resource"] = "base"
+        config["resource"] = "document"
 
     if config["resource"] == "document" or config["resource"] == "both":
         print("\nUsing Feishu Document:")

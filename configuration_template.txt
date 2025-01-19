@@ -6,15 +6,15 @@ SHARED_FOLDER=
 
 # Parameters for Python
 notice_dir=
-notice_message_heading=
-# The resource could be `document`, `base`, `both`. The default is `base`.
-resource=
-app_id=
-app_secret=
+notice_message_heading=通知栏
+# The resource could be `document`, `base`, `both`. The default is `document`.
+resource=document
+app_id=cli_a7cacfd2f43e100e
+app_secret=2Io4fqrt1fGeVu5Sh32MwxooMa8xM2pX
 
 # Parameters for Feishu Document
 document_id=
-message_heading_text=
+message_heading_text=家长留言区
 
 # Parameters for Feishu Base
 app_token=

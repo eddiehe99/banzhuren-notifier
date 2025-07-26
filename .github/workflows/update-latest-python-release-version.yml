@@ -1,0 +1,175 @@
+name: Update Latest Python Release Version
+
+on:
+  schedule:
+    - cron: '0 0 1 * *' # 每月第一天运行一次
+  workflow_dispatch:
+
+jobs:
+  update-python-release-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: cd docs
+        run: |
+          cd docs
+
+      - name: Get all Python versions
+        run: |
+          curl -s https://www.python.org/ftp/python/ | grep -oP '<a href="\K(\d+\.\d+\.\d+)(?=/">)' > all-versions.txt
+
+      - name: Filter release versions
+        run: |
+          while read -r version; do
+            if ! echo "$version" | grep -q "[a-zA-Z]"; then
+              echo "$version" >> release-versions.txt
+            fi
+          done < all-versions.txt
+
+      - name: Sort release versions
+        run: |
+          # 使用 sort 命令按版本号排序，使用版本号排序的关键是使用 -V 选项
+          sort -r -V release-versions.txt -o sorted-release-versions.txt
+
+      - name: Check download link availability
+        run: |
+          set -x
+          found=false
+          while read -r version; do
+            base_url="https://www.python.org/ftp/python/${version}"
+            # 这里以 amd64 为例，你可以根据需要扩展到其他架构
+            download_url="${base_url}/python-${version}-amd64.exe"
+            response=$(curl -s -o /dev/null -w "%{http_code}" "$download_url")
+            echo "Checking version $version, response code: $response"
+            if [ "$response" -eq 200 ]; then
+              echo "latest_release_version=$version" >> $GITHUB_OUTPUT
+              found=true
+              break
+            fi
+          done < sorted-release-versions.txt
+          if [ "$found" = false ]; then
+            echo "No valid download link found for any release version."
+            exit 1
+          fi
+        id: check-download
+
+      - name: Get current version from latest-python-release-version.json
+        id: get-current-version
+        run: |
+          if [ -f "latest-python-release-version.json" ]; then
+            CURRENT_VERSION=$(jq -r '.latestPythonReleaseVersion' latest-python-release-version.json)
+            echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "current_version=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if version has changed
+        id: check-version-change
+        run: |
+          LATEST_RELEASE_VERSION="${{ steps.check-download.outputs.latest_release_version }}"
+          CURRENT_VERSION="${{ steps.get-current-version.outputs.current_version }}"
+          if [ "$LATEST_RELEASE_VERSION" = "$CURRENT_VERSION" ]; then
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update latest-python-release-version.json
+        if: steps.check-version-change.outputs.version_changed == 'true'
+        run: |
+          LATEST_RELEASE_VERSION="${{ steps.check-download.outputs.latest_release_version }}"
+          echo "{\"latestPythonReleaseVersion\": \"$LATEST_RELEASE_VERSION\"}" > latest-python-release-version.json
+
+      - name: Commit and push changes
+        if: steps.check-version-change.outputs.version_changed == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add latest-python-release-version.json
+          git commit -m "Update latest Python version" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
+
+      - name: Clean up
+        if: always()
+        run: |
+          rm -f all-versions.txt
+          rm -f latest-release-version.txt
+
+  build:
+    name: Build Docusaurus
+    runs-on: ubuntu-latest
+    needs: update-python-release-version
+    if: ${{ needs.update-python-release-version.outputs.version_changed == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect package manager
+        id: detect-package-manager
+        run: |
+          if [ -f "${{ github.workspace }}/pnpm-lock.yaml" ]; then
+              echo "manager=pnpm" >> $GITHUB_OUTPUT
+              echo "command=install" >> $GITHUB_OUTPUT
+              echo "runner=pnpm" >> $GITHUB_OUTPUT
+              exit 0
+          elif [ -f "${{ github.workspace }}/yarn.lock" ]; then
+            echo "manager=yarn" >> $GITHUB_OUTPUT
+            echo "command=install" >> $GITHUB_OUTPUT
+            echo "runner=yarn" >> $GITHUB_OUTPUT
+            exit 0
+          elif [ -f "${{ github.workspace }}/package.json" ]; then
+            echo "manager=npm" >> $GITHUB_OUTPUT
+            echo "command=ci" >> $GITHUB_OUTPUT
+            echo "runner=npx --no-install" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "Unable to determine package manager"
+            exit 1
+          fi
+
+      - name: Setup pnpm
+        if: steps.detect-package-manager.outputs.manager == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: ${{ steps.detect-package-manager.outputs.manager }}
+
+      - name: Install dependencies
+        run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
+
+      - name: Build website
+        run: ${{ steps.detect-package-manager.outputs.runner }} run build
+
+      - name: Upload Build Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+  
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: ${{ needs.update-python-release-version.outputs.version_changed == 'true' }}
+    # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
+    permissions:
+      pages: write # to deploy to Pages
+      id-token: write # to verify the deployment originates from an appropriate source
+
+    # Deploy to the github-pages environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

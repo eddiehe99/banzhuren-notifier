@@ -1,0 +1,9 @@
+{
+  "label": "自动搬运家长留言",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "slug": "feishu-docs",
+    "description": "按照左边导航栏的操作指引，15 min 后即可使用。"
+  }
+}

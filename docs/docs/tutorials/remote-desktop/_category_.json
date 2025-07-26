@@ -1,0 +1,9 @@
+{
+  "label": "在教室使用办公室电脑",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "slug": "remote-desktop",
+    "description": "学校电脑原本就有的功能，无需安装任何东西，按照左边导航栏的操作指引，5 min 后即可使用。"
+  }
+}

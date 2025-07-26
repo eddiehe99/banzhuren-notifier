@@ -1,0 +1,19 @@
+初始化:
+  label: 初始化
+  permalink: /initiation
+  description: 初始化相关 blog
+
+测试:
+  label: 测试
+  permalink: /test
+  description: 测试相关 blog
+
+功能:
+  label: 功能
+  permalink: /feature
+  description: 功能相关 blog
+
+维护:
+  label: 维护
+  permalink: /maintenance
+  description: 维护相关 blog

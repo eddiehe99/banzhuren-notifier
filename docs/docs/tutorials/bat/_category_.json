@@ -1,0 +1,9 @@
+{
+  "label": "自动传递班主任通知",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "slug": "bat",
+    "description": "按照左边导航栏的操作指引，15 min 后即可使用。"
+  }
+}

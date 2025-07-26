@@ -1,0 +1,9 @@
+{
+  "label": "AI 工具",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "slug": "ai",
+    "description": "点击链接即可在网页中使用，无需安装。"
+  }
+}

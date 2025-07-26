@@ -8,6 +8,7 @@ on:
     # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#on
     paths:
       - 'docs/**'
+    workflow_dispatch:
 
 jobs:
   build:
@@ -18,10 +19,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: cd docs
+        run: |
+          cd docs
+
       - name: Detect package manager
         id: detect-package-manager
         run: |
-          cd docs
           if [ -f "${{ github.workspace }}/pnpm-lock.yaml" ]; then
               echo "manager=pnpm" >> $GITHUB_OUTPUT
               echo "command=install" >> $GITHUB_OUTPUT

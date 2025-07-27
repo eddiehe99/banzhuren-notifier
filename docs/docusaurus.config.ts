@@ -14,12 +14,12 @@ const config: Config = {
   url: 'https://banzhuren-notifier.eddiehe.top',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/banzhuren-notifier/',
+  baseUrl: '/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
   organizationName: 'eddiehe99', // Usually your GitHub org/user name.
-  projectName: 'banzhuren-notifier-docs', // Usually your repo name.
+  projectName: 'banzhuren-notifier', // Usually your repo name.
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -41,7 +41,7 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/eddiehe99/banzhuren-notifier',
+            'https://github.com/eddiehe99/banzhuren-notifier/docs',
         },
         blog: {
           showReadingTime: true,
@@ -54,7 +54,7 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/eddiehe99/banzhuren-notifier-docs',
+            'https://github.com/eddiehe99/banzhuren-notifier/docs',
           // Useful options to enforce blogging best practices
           onInlineTags: 'warn',
           onInlineAuthors: 'warn',
@@ -106,7 +106,7 @@ const config: Config = {
         },
         { to: '/blog', label: 'Blog', position: 'left' },
         {
-          href: 'https://github.com/eddiehe99/banzhuren-notifier-docs',
+          href: 'https://github.com/eddiehe99/banzhuren-notifier',
           label: 'GitHub',
           position: 'right',
         },
@@ -153,12 +153,8 @@ const config: Config = {
               href: 'https://bannatienet.eddiehe.top',
             },
             {
-              label: 'banzhuren-notifier 工具源码',
-              href: 'https://github.com/eddiehe99/banzhuren-notifier',
-            },
-            {
-              label: '说明文档源码',
-              href: 'https://github.com/eddiehe99/banzhuren-notifier-docs',
+              label: '豆瓣榜单助手·Douban-Ranker',
+              href: 'https://douban-ranker.eddiehe.top/',
             },
           ],
         },

@@ -99,6 +99,9 @@ jobs:
           rm -f all-versions.txt
           rm -f latest-release-version.txt
 
+    outputs:
+      version_changed: ${{ steps.check-version-change.outputs.version_changed }}
+
   build:
     name: Build Docusaurus
     runs-on: ubuntu-latest

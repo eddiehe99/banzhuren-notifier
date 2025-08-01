@@ -8,13 +8,13 @@ on:
 jobs:
   update-python-release-version:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs  # 所有步骤默认在 docs/ 目录执行
+        
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: cd docs
-        run: |
-          cd docs
 
       - name: Get all Python versions
         run: |
@@ -104,6 +104,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: update-python-release-version
     if: ${{ needs.update-python-release-version.outputs.version_changed == 'true' }}
+    defaults:
+      run:
+        working-directory: docs  # 所有步骤默认在 docs/ 目录执行
+        
     steps:
       - uses: actions/checkout@v4
         with:
@@ -142,6 +146,8 @@ jobs:
         with:
           node-version: 20
           cache: ${{ steps.detect-package-manager.outputs.manager }}
+          # ✅ 修复：缓存路径指向 docs/
+          cache-dependency-path: docs/pnpm-lock.yaml
 
       - name: Install dependencies
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}

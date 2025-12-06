@@ -8,13 +8,13 @@ on:
 jobs:
   update-python-release-version:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs  # 所有步骤默认在 docs/ 目录执行
+        
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: cd docs
-        run: |
-          cd docs
 
       - name: Get all Python versions
         run: |
@@ -99,11 +99,18 @@ jobs:
           rm -f all-versions.txt
           rm -f latest-release-version.txt
 
+    outputs:
+      version_changed: ${{ steps.check-version-change.outputs.version_changed }}
+
   build:
     name: Build Docusaurus
     runs-on: ubuntu-latest
     needs: update-python-release-version
     if: ${{ needs.update-python-release-version.outputs.version_changed == 'true' }}
+    defaults:
+      run:
+        working-directory: docs  # 所有步骤默认在 docs/ 目录执行
+        
     steps:
       - uses: actions/checkout@v4
         with:
@@ -112,17 +119,17 @@ jobs:
       - name: Detect package manager
         id: detect-package-manager
         run: |
-          if [ -f "${{ github.workspace }}/pnpm-lock.yaml" ]; then
+          if [ -f "pnpm-lock.yaml" ]; then
               echo "manager=pnpm" >> $GITHUB_OUTPUT
               echo "command=install" >> $GITHUB_OUTPUT
               echo "runner=pnpm" >> $GITHUB_OUTPUT
               exit 0
-          elif [ -f "${{ github.workspace }}/yarn.lock" ]; then
+          elif [ -f "yarn.lock" ]; then
             echo "manager=yarn" >> $GITHUB_OUTPUT
             echo "command=install" >> $GITHUB_OUTPUT
             echo "runner=yarn" >> $GITHUB_OUTPUT
             exit 0
-          elif [ -f "${{ github.workspace }}/package.json" ]; then
+          elif [ -f "package.json" ]; then
             echo "manager=npm" >> $GITHUB_OUTPUT
             echo "command=ci" >> $GITHUB_OUTPUT
             echo "runner=npx --no-install" >> $GITHUB_OUTPUT
@@ -142,6 +149,8 @@ jobs:
         with:
           node-version: 20
           cache: ${{ steps.detect-package-manager.outputs.manager }}
+          # ✅ 修复：缓存路径指向 docs/
+          cache-dependency-path: docs/pnpm-lock.yaml
 
       - name: Install dependencies
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
@@ -152,7 +161,7 @@ jobs:
       - name: Upload Build Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build
+          path: docs/build
   
   deploy:
     name: Deploy to GitHub Pages

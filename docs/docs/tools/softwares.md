@@ -6,6 +6,10 @@ sidebar_position: 4
 
 # 软件
 
+## 一体机软件
+
+- [Jursin/Awesome-Class-Softwares](https://github.com/Jursin/Awesome-Class-Softwares)
+
 ## 浏览器
 
 - [Microsoft Edge](https://www.microsoft.com/zh-cn/edge/download)
